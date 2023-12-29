@@ -13,7 +13,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class DeferToNewtonsoftConverterFactory : IConverterFactory
     {
-        private static readonly JsonSerializer JsonSerializer = JsonSerializer.CreateDefault();
+        private static readonly Newtonsoft.Json.JsonSerializer JsonSerializer = Newtonsoft.Json.JsonSerializer.CreateDefault();
 
         private static class DeferToNewtonsoftConverter<TBinaryMessage>
             where TBinaryMessage : IMemoryOwner<byte>

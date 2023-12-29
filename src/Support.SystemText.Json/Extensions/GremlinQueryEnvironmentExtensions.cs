@@ -85,7 +85,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 : default;
         }
 
-        public static IGremlinQueryEnvironment UseNewtonsoftJson(this IGremlinQueryEnvironment environment)
+        public static IGremlinQueryEnvironment UseSystemTextJson(this IGremlinQueryEnvironment environment)
         {
             return environment
                 .ConfigureDeserializer(deserializer => deserializer
