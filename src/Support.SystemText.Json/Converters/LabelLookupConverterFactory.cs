@@ -1,14 +1,13 @@
-﻿using Newtonsoft.Json.Linq;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Core;
-using System.Runtime.CompilerServices;
 
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class LabelLookupConverterFactory : IConverterFactory
     {
-        private sealed class LabelLookupConverter<TTarget> : IConverter<JObject, TTarget>
+        private sealed class LabelLookupConverter<TTarget> : IConverter<JsonElement, TTarget>
         {
             private readonly IGremlinQueryEnvironment _environment;
             private readonly IReadOnlyDictionary<string, Type[]> _modelTypesForLabels;
@@ -36,11 +35,12 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                             StringComparer.OrdinalIgnoreCase));
             }
 
-            public bool TryConvert(JObject serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
-                if (serialized.LooksLikeElement(out _, out var labelValue, out _))
+                if (serialized.ValueKind == JsonValueKind.Object
+                 && serialized.LooksLikeElement(out _, out var labelValue, out _))
                 {
-                    if (labelValue.Value<string>() is { } label && _modelTypesForLabels.TryGetValue(label, out var types) && types.FirstOrDefault(typeof(TTarget).IsAssignableFrom) is { } modelType)
+                    if (labelValue.GetString() is { } label && _modelTypesForLabels.TryGetValue(label, out var types) && types.FirstOrDefault(typeof(TTarget).IsAssignableFrom) is { } modelType)
                     {
                         if (modelType != typeof(TTarget) && recurse.TryTransformTo(modelType).From(serialized, _environment) is TTarget target)
                         {
@@ -57,7 +57,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 
         private static readonly ConditionalWeakTable<IGremlinQueryEnvironment, IReadOnlyDictionary<string, Type[]>> ModelTypesForLabels = new();
 
-        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(JObject) && !typeof(TTarget).IsSealed
+        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(JsonElement) && !typeof(TTarget).IsSealed
             ? (IConverter<TSource, TTarget>)(object)new LabelLookupConverter<TTarget>(environment)
             : default;
     }

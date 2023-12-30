@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Core;
 using ExRam.Gremlinq.Core.GraphElements;
@@ -8,7 +7,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class PropertyHeuristicConverterFactory : IConverterFactory
     {
-        private sealed class PropertyHeuristicConverter<TTarget> : IConverter<JObject, TTarget>
+        private sealed class PropertyHeuristicConverter<TTarget> : IConverter<JsonElement, TTarget>
         {
             private readonly IGremlinQueryEnvironment _environment;
 
@@ -17,22 +16,25 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 _environment = environment;
             }
 
-            public bool TryConvert(JObject jObject, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement jObject, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
-                if (jObject.LooksLikeVertexProperty())
+                if (jObject.ValueKind == JsonValueKind.Object)
                 {
-                    if (recurse.TryTransform(jObject, _environment, out VertexProperty<object>? vProp) && vProp is TTarget target)
+                    if (jObject.LooksLikeVertexProperty())
                     {
-                        value = target;
-                        return true;
+                        if (recurse.TryTransform(jObject, _environment, out VertexProperty<object>? vProp) && vProp is TTarget target)
+                        {
+                            value = target;
+                            return true;
+                        }
                     }
-                }
-                else if (jObject.LooksLikeProperty())
-                {
-                    if (recurse.TryTransform(jObject, _environment, out Property<object>? prop) && prop is TTarget target)
+                    else if (jObject.LooksLikeProperty())
                     {
-                        value = target;
-                        return true;
+                        if (recurse.TryTransform(jObject, _environment, out Property<object>? prop) && prop is TTarget target)
+                        {
+                            value = target;
+                            return true;
+                        }
                     }
                 }
 
@@ -41,7 +43,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             }
         }
 
-        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(JObject) == typeof(TSource) && typeof(TTarget).IsAssignableFrom(typeof(VertexProperty<object>)) && !typeof(Property<object>).IsAssignableFrom(typeof(TTarget))
+        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(JsonElement) == typeof(TSource) && typeof(TTarget).IsAssignableFrom(typeof(VertexProperty<object>)) && !typeof(Property<object>).IsAssignableFrom(typeof(TTarget))
             ? (IConverter<TSource, TTarget>)(object)new PropertyHeuristicConverter<TTarget>(environment)
             : default;
     }

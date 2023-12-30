@@ -3,8 +3,6 @@
 using ExRam.Gremlinq.Core;
 using ExRam.Gremlinq.Core.Transformation;
 
-using Newtonsoft.Json.Linq;
-
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     public static class GremlinQueryEnvironmentExtensions
@@ -49,18 +47,18 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 
         private sealed class NativeTypeDeserializerConverterFactory<TNative> : IConverterFactory
         {
-            private sealed class NativeTypeDeserializerConverter<TTarget> : IConverter<JValue, TTarget>
+            private sealed class NativeTypeDeserializerConverter<TTarget> : IConverter<JsonElement, TTarget>
             {
                 private readonly IGremlinQueryEnvironment _environment;
-                private readonly Func<JValue, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> _deserializer;
+                private readonly Func<JsonElement, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> _deserializer;
 
-                public NativeTypeDeserializerConverter(Func<JValue, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> deserializer, IGremlinQueryEnvironment environment)
+                public NativeTypeDeserializerConverter(Func<JsonElement, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> deserializer, IGremlinQueryEnvironment environment)
                 {
                     _environment = environment;
                     _deserializer = deserializer;
                 }
 
-                public bool TryConvert(JValue source, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+                public bool TryConvert(JsonElement source, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
                 {
                     if (_deserializer(source, _environment, defer, recurse) is TTarget deserialized)
                     {
@@ -73,26 +71,26 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 }
             }
 
-            private readonly Func<JValue, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> _deserializer;
+            private readonly Func<JsonElement, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> _deserializer;
 
-            public NativeTypeDeserializerConverterFactory(Func<JValue, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> deserializer)
+            public NativeTypeDeserializerConverterFactory(Func<JsonElement, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> deserializer)
             {
                 _deserializer = deserializer;
             }
 
-            public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(JValue) && typeof(TTarget) == typeof(TNative)
+            public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(JsonElement) && typeof(TTarget) == typeof(TNative)
                 ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(NativeTypeDeserializerConverter<>).MakeGenericType(typeof(TNative), typeof(TTarget)), _deserializer, environment)
                 : default;
         }
 
-        public static IGremlinQueryEnvironment UseNewtonsoftJson(this IGremlinQueryEnvironment environment)
+        public static IGremlinQueryEnvironment UseSystemTextJson(this IGremlinQueryEnvironment environment)
         {
             return environment
                 .ConfigureDeserializer(deserializer => deserializer
-                    .UseNewtonsoftJson());
+                    .UseSystemTextJson());
         }
 
-        public static IGremlinQueryEnvironment RegisterNativeType<TNative, TSerialized>(this IGremlinQueryEnvironment environment, Func<TNative, IGremlinQueryEnvironment, ITransformer, ITransformer, TSerialized> serializer, Func<JValue, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> deserializer)
+        public static IGremlinQueryEnvironment RegisterNativeType<TNative, TSerialized>(this IGremlinQueryEnvironment environment, Func<TNative, IGremlinQueryEnvironment, ITransformer, ITransformer, TSerialized> serializer, Func<JsonElement, IGremlinQueryEnvironment, ITransformer, ITransformer, TNative> deserializer)
         {
             return environment
                 .ConfigureNativeTypes(_ => _

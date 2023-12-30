@@ -9,7 +9,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class ScalarToPropertyConverterFactory : IConverterFactory
     {
-        private sealed class ScalarToPropertyConverter<TTargetProperty, TTargetPropertyValue> : IConverter<JValue, TTargetProperty>
+        private sealed class ScalarToPropertyConverter<TTargetProperty, TTargetPropertyValue> : IConverter<JsonElement, TTargetProperty>
             where TTargetProperty : Property
         {
             private readonly IGremlinQueryEnvironment _environment;
@@ -30,9 +30,9 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                     throw new ArgumentException($"{typeof(TTargetProperty).Name} does not contain a constructor that takes a value of type {typeof(TTargetPropertyValue).Name}.");
             }
 
-            public bool TryConvert(JValue serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTargetProperty? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTargetProperty? value)
             {
-                if (recurse.TryTransform<JValue, TTargetPropertyValue>(serialized, _environment, out var propertyValue))
+                if (recurse.TryTransform<JsonElement, TTargetPropertyValue>(serialized, _environment, out var propertyValue))
                 {
                     if (_constructor(propertyValue) is { } requestedProperty)
                     {
@@ -46,7 +46,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             }
         }
 
-        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(JValue) && typeof(Property).IsAssignableFrom(typeof(TTarget)) && typeof(TTarget).IsGenericType
+        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(JsonElement) && typeof(Property).IsAssignableFrom(typeof(TTarget)) && typeof(TTarget).IsGenericType
             ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(ScalarToPropertyConverter<,>).MakeGenericType(typeof(TTarget), typeof(TTarget).GetGenericArguments()[0]), environment)
             : default;
     }

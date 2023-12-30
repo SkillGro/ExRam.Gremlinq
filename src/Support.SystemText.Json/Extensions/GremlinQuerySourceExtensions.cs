@@ -4,12 +4,12 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     public static class GremlinQuerySourceExtensions
     {
-        public static IGremlinQuerySource UseNewtonsoftJson(this IGremlinQuerySource source)
+        public static IGremlinQuerySource UseSystemTextJson(this IGremlinQuerySource source)
         {
             return source
                 .ConfigureEnvironment(env => env
                     .ConfigureDeserializer(deserializer => deserializer
-                        .UseNewtonsoftJson()));
+                        .UseSystemTextJson()));
         }
     }
 }

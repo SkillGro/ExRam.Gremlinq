@@ -12,20 +12,20 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class NewtonsoftJsonSerializerConverterFactory : IConverterFactory
     {
-        private sealed class GraphsonJsonSerializer : JsonSerializer
+        private sealed class GraphsonJsonSerializer : Newtonsoft.Json.JsonSerializer
         {
             private sealed class GremlinContractResolver : DefaultContractResolver
             {
-                private sealed class VertexPropertyPropertiesConverter<T> : JsonConverter<T>
+                private sealed class VertexPropertyPropertiesConverter<T> : Newtonsoft.Json.JsonConverter<T>
                 {
-                    public override T? ReadJson(JsonReader reader, Type objectType, T? existingValue, bool hasExistingValue, JsonSerializer serializer)
+                    public override T? ReadJson(JsonReader reader, Type objectType, T? existingValue, bool hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)
                     {
                         return serializer.Deserialize<VertexPropertyPropertiesWrapper<T>>(reader) is { HasValue: true, Value: { } value }
                             ? value
                             : default;
                     }
 
-                    public override void WriteJson(JsonWriter writer, T? value, JsonSerializer serializer) => throw new NotImplementedException();
+                    public override void WriteJson(JsonWriter writer, T? value, Newtonsoft.Json.JsonSerializer serializer) => throw new NotImplementedException();
                 }
 
                 private readonly IGraphModel _model;
@@ -35,7 +35,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                     _model = model;
                 }
 
-                protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
+                protected override Newtonsoft.Json.Serialization.JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
                 {
                     var property = base.CreateProperty(member, memberSerialization);
 
@@ -54,7 +54,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                             if (member.Name == nameof(VertexProperty<object>.Id) || member.Name == nameof(VertexProperty<object>.Label))
                                 property.Writable = true;
                             else if (member is PropertyInfo { Name: nameof(VertexProperty<object>.Properties) } propertyInfo && !typeof(IDictionary<string, object>).IsAssignableFrom(propertyInfo.PropertyType))
-                                property.Converter = (JsonConverter?)Activator.CreateInstance(typeof(VertexPropertyPropertiesConverter<>).MakeGenericType(propertyInfo.PropertyType));
+                                property.Converter = (Newtonsoft.Json.JsonConverter?)Activator.CreateInstance(typeof(VertexPropertyPropertiesConverter<>).MakeGenericType(propertyInfo.PropertyType));
                         }
                     }
 
@@ -64,7 +64,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 }
             }
 
-            private sealed class JTokenConverterConverter : JsonConverter
+            private sealed class JTokenConverterConverter : Newtonsoft.Json.JsonConverter
             {
                 private readonly IGremlinQueryEnvironment _environment;
 
@@ -85,12 +85,12 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                     return true;
                 }
 
-                public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
+                public override void WriteJson(JsonWriter writer, object? value, Newtonsoft.Json.JsonSerializer serializer)
                 {
                     throw new NotSupportedException($"Cannot write to {nameof(JTokenConverterConverter)}.");
                 }
 
-                public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+                public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, Newtonsoft.Json.JsonSerializer serializer)
                 {
                     JToken? token;
 
@@ -133,12 +133,13 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             }
         }
 
-        private sealed class NewtonsoftJsonSerializerConverter<TSource, TTarget> : IConverter<TSource, TTarget>
+        private sealed class SystemTextJsonSerializerConverter<TSource, TTarget> : IConverter<TSource, TTarget>
             where TSource : JToken
         {
+            //private readonly JsonSerializerSettings _settings;
             private readonly GraphsonJsonSerializer _serializer;
 
-            public NewtonsoftJsonSerializerConverter(IGremlinQueryEnvironment environment)
+            public SystemTextJsonSerializerConverter(IGremlinQueryEnvironment environment)
             {
                 _serializer = new GraphsonJsonSerializer(environment);
             }
@@ -172,7 +173,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
             return typeof(JToken).IsAssignableFrom(typeof(TSource))
-                ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(NewtonsoftJsonSerializerConverter<,>).MakeGenericType(typeof(TSource), typeof(TTarget)), environment)
+                ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(SystemTextJsonSerializerConverter<,>).MakeGenericType(typeof(TSource), typeof(TTarget)), environment)
                 : null;
         }
     }

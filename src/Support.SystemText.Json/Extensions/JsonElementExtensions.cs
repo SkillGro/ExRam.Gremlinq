@@ -2,28 +2,31 @@
 using ExRam.Gremlinq.Core;
 using ExRam.Gremlinq.Core.Transformation;
 
-using Newtonsoft.Json.Linq;
-
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
-    internal static class JTokenExtensions
+    internal static class JsonElementExtensions
     {
-        public static IEnumerable<TItem>? TryExpandTraverser<TItem>(this JObject jObject, IGremlinQueryEnvironment env, ITransformer recurse)
+        public static IEnumerable<TItem>? TryExpandTraverser<TItem>(this JsonElement jObject, IGremlinQueryEnvironment env, ITransformer recurse)
         {
-            if (jObject.TryGetValue("@type", StringComparison.OrdinalIgnoreCase, out var nestedType) && "g:Traverser".Equals(nestedType.Value<string>(), StringComparison.OrdinalIgnoreCase) && jObject.TryGetValue("@value", StringComparison.OrdinalIgnoreCase, out var valueToken) && valueToken is JObject nestedTraverserObject)
+            if (jObject.TryGetProperty("@type", out var nestedType)
+                && "g:Traverser".Equals(nestedType.GetString(), StringComparison.OrdinalIgnoreCase)
+                && jObject.TryGetProperty("@value", out var valueToken)
+                && valueToken.ValueKind == JsonValueKind.Object)
             {
+                var nestedTraverserObject = valueToken;
                 var bulk = 1;
 
-                if (nestedTraverserObject.TryGetValue("bulk", StringComparison.OrdinalIgnoreCase, out var bulkToken) && recurse.TryTransform<JToken, int>(bulkToken, env, out var bulkObject))
+                if (nestedTraverserObject.TryGetProperty("bulk", out var bulkToken)
+                    && recurse.TryTransform<JsonElement, int>(bulkToken, env, out var bulkObject))
                     bulk = bulkObject;
 
-                if (nestedTraverserObject.TryGetValue("value", StringComparison.OrdinalIgnoreCase, out var traverserValue))
+                if (nestedTraverserObject.TryGetProperty("value", out var traverserValue))
                 {
                     return Core();
 
                     IEnumerable<TItem> Core()
                     {
-                        if (recurse.TryTransform<JToken, TItem>(traverserValue, env, out var item))
+                        if (recurse.TryTransform<JsonElement, TItem>(traverserValue, env, out var item))
                         {
                             for (var j = 0; j < bulk; j++)
                                 yield return item;
@@ -35,22 +38,28 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             return null;
         }
 
-        public static bool LooksLikeElement(this JObject jObject, [NotNullWhen(true)] out JToken? idToken, [NotNullWhen(true)] out JValue? labelValue, out JObject? propertiesObject)
+        public static bool LooksLikeElement(this JsonElement jObject, [NotNullWhen(true)] out JsonElement idToken, [NotNullWhen(true)] out JsonElement labelValue, out JsonElement? propertiesObject)
         {
-            idToken = null;
-            labelValue = null;
+            idToken = default;
+            labelValue = default;
             propertiesObject = null;
 
-            if (!jObject.TryGetValue("value", StringComparison.OrdinalIgnoreCase, out _) && jObject.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out idToken) && idToken.Type != JTokenType.Array && jObject.TryGetValue("label", StringComparison.OrdinalIgnoreCase, out var labelToken) && labelToken.Type == JTokenType.String)
+            if (!jObject.TryGetProperty("value", out _)
+                && jObject.TryGetProperty("id", out idToken)
+                && idToken.ValueKind != JsonValueKind.Array
+                && jObject.TryGetProperty("label", out var labelToken)
+                && labelToken.ValueKind == JsonValueKind.String)
             {
-                if ((labelValue = labelToken as JValue) is not null)
+                if (labelToken.ValueKind != JsonValueKind.Object
+                 && labelToken.ValueKind != JsonValueKind.Array)
                 {
-                    if (jObject.TryGetValue("properties", StringComparison.OrdinalIgnoreCase, out var propertiesToken))
+                    labelValue = labelToken;
+                    if (jObject.TryGetProperty("properties", out var propertiesToken))
                     {
-                        propertiesObject = propertiesToken as JObject;
-
-                        if (propertiesObject is null)
+                        if (propertiesToken.ValueKind != JsonValueKind.Object)
                             return false;
+
+                        propertiesObject = propertiesToken;
                     }
 
                     return true;
@@ -60,18 +69,24 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             return false;
         }
 
-        public static bool LooksLikeProperty(this JObject jObject)
+        public static bool LooksLikeProperty(this JsonElement jObject)
         {
-            return jObject.TryGetValue("value", StringComparison.OrdinalIgnoreCase, out _) && jObject.TryGetValue("key", StringComparison.OrdinalIgnoreCase, out var keyToken) && keyToken.Type == JTokenType.String;
+            return jObject.TryGetProperty("value", out _)
+                && jObject.TryGetProperty("key", out var keyToken)
+                && keyToken.ValueKind == JsonValueKind.String;
         }
 
-        public static bool LooksLikeVertexProperty(this JObject jObject)
+        public static bool LooksLikeVertexProperty(this JsonElement jObject)
         {
-            if (jObject.TryGetValue("value", StringComparison.OrdinalIgnoreCase, out _) && jObject.TryGetValue("id", StringComparison.OrdinalIgnoreCase, out var idToken) && idToken.Type != JTokenType.Array)
+            if (jObject.TryGetProperty("value", out _)
+                && jObject.TryGetProperty("id", out var idToken)
+                && idToken.ValueKind != JsonValueKind.Array)
             {
-                if (!jObject.TryGetValue("label", StringComparison.OrdinalIgnoreCase, out var labelToken) || labelToken.Type == JTokenType.String)
+                if (!jObject.TryGetProperty("label", out var labelToken)
+                    || labelToken.ValueKind == JsonValueKind.String)
                 {
-                    if (!jObject.TryGetValue("properties", StringComparison.OrdinalIgnoreCase, out var propertiesToken) || propertiesToken.Type == JTokenType.Object)
+                    if (!jObject.TryGetProperty("properties", out var propertiesToken)
+                        || propertiesToken.ValueKind == JsonValueKind.Object)
                         return true;
                 }
             }

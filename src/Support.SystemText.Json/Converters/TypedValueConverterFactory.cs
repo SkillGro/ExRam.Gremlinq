@@ -1,9 +1,8 @@
-﻿using Newtonsoft.Json.Linq;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Core;
 using Gremlin.Net.Process.Traversal;
-using System.Numerics;
 
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
@@ -32,7 +31,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             { "gx:Int16", typeof(short) }
         };
 
-        public sealed class TypedValueConverter<TTarget> : IConverter<JObject, TTarget>
+        public sealed class TypedValueConverter<TTarget> : IConverter<JsonElement, TTarget>
         {
             private readonly IGremlinQueryEnvironment _environment;
 
@@ -41,11 +40,15 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 _environment = environment;
             }
 
-            public bool TryConvert(JObject serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
-                if (serialized.TryGetValue("@type", out var typeName) && serialized.TryGetValue("@value", out var valueToken))
+                if (serialized.ValueKind == JsonValueKind.Object
+                 && serialized.TryGetProperty("@type", out var typeName)
+                 && serialized.TryGetProperty("@value", out var valueToken))
                 {
-                    if (typeName.Type == JTokenType.String && typeName.Value<string>() is { } typeNameString && GraphSONTypes.TryGetValue(typeNameString, out var moreSpecificType))
+                    if (typeName.ValueKind == JsonValueKind.String
+                     && typeName.GetString() is { } typeNameString
+                     && GraphSONTypes.TryGetValue(typeNameString, out var moreSpecificType))
                     {
                         if (typeof(TTarget) != moreSpecificType && typeof(TTarget).IsAssignableFrom(moreSpecificType))
                         {
@@ -67,7 +70,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
-            return typeof(TSource) == typeof(JObject)
+            return typeof(TSource) == typeof(JsonElement)
                 ? (IConverter<TSource, TTarget>)(object)new TypedValueConverter<TTarget>(environment)
                 : default;
         }

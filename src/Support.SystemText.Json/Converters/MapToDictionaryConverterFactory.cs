@@ -1,13 +1,13 @@
-﻿using Newtonsoft.Json.Linq;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Core;
+using ExRam.Gremlinq.Support.SystemTextJson.Extensions;
 
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class MapToDictionaryConverterFactory : IConverterFactory
     {
-        private sealed class MapToDictionaryConverter<TKey, TValue, TTarget> : IConverter<JObject, TTarget>
+        private sealed class MapToDictionaryConverter<TKey, TValue, TTarget> : IConverter<JsonElement, TTarget>
             where TKey : notnull
         {
             private readonly IGremlinQueryEnvironment _environment;
@@ -17,17 +17,23 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 _environment = environment;
             }
 
-            public bool TryConvert(JObject serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
-                if (serialized.TryGetValue("@type", out var nestedType) && "g:Map".Equals(nestedType.Value<string>(), StringComparison.OrdinalIgnoreCase))
+                if (serialized.ValueKind == JsonValueKind.Object
+                 && serialized.TryGetProperty("@type", out var nestedType)
+                 && nestedType.ValueKind == JsonValueKind.String
+                 && "g:Map".Equals(nestedType.GetString(), StringComparison.OrdinalIgnoreCase))
                 {
-                    if (serialized.TryGetValue("@value", out var valueToken) && valueToken is JArray mapArray)
+                    if (serialized.TryGetProperty("@value", out var valueToken)
+                     && valueToken.ValueKind == JsonValueKind.Array)
                     {
+                        var mapArray = valueToken;
                         var retObject = new Dictionary<TKey, TValue>();
 
-                        for (var i = 0; i < mapArray.Count / 2; i++)
+                        foreach (var (propertyKey, propertyValue) in mapArray.EnumerateArray().PairWise())
                         {
-                            if (recurse.TryTransform(mapArray[i * 2], _environment, out TKey? key) && recurse.TryTransform(mapArray[i * 2 + 1], _environment, out TValue? entry))
+                            if (recurse.TryTransform(propertyKey, _environment, out TKey? key)
+                             && recurse.TryTransform(propertyValue, _environment, out TValue? entry))
                                 retObject.Add(key, entry);
                         }
 
@@ -43,7 +49,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
-            if (typeof(TSource) == typeof(JObject))
+            if (typeof(TSource) == typeof(JsonElement))
             {
                 var maybeCompatibleInterface = typeof(TTarget)
                     .GetInterfaces().Prepend(typeof(TTarget))

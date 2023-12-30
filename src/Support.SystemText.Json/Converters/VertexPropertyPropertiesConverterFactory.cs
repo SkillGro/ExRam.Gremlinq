@@ -6,8 +6,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class VertexPropertyPropertiesConverterFactory : IConverterFactory
     {
-        private sealed class VertexPropertyPropertiesConverter<TSource, TOption> : IConverter<TSource, VertexPropertyPropertiesWrapper<TOption>>
-            where TSource : JToken
+        private sealed class VertexPropertyPropertiesConverter<TOption> : IConverter<JsonElement, VertexPropertyPropertiesWrapper<TOption>>
         {
             private readonly IGremlinQueryEnvironment _environment;
 
@@ -16,9 +15,9 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 _environment = environment;
             }
 
-            public bool TryConvert(TSource source, ITransformer defer, ITransformer recurse, out VertexPropertyPropertiesWrapper<TOption> value)
+            public bool TryConvert(JsonElement source, ITransformer defer, ITransformer recurse, out VertexPropertyPropertiesWrapper<TOption> value)
             {
-                if (source is JObject { Count: 0 })
+                if (source.ValueKind == JsonValueKind.Object && !source.EnumerateObject().Any())
                 {
                     value = VertexPropertyPropertiesWrapper<TOption>.None;
                     return true;
@@ -38,7 +37,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
             return typeof(JToken).IsAssignableFrom(typeof(TSource)) && typeof(TTarget).IsGenericType && typeof(TTarget).GetGenericTypeDefinition() == typeof(VertexPropertyPropertiesWrapper<>)
-                ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(VertexPropertyPropertiesConverter<,>).MakeGenericType(typeof(TSource), typeof(TTarget).GenericTypeArguments[0]), environment)
+                ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(VertexPropertyPropertiesConverter<>).MakeGenericType(typeof(TSource), typeof(TTarget).GenericTypeArguments[0]), environment)
                 : null;
         }
     }
