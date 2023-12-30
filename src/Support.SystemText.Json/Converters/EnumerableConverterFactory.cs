@@ -15,18 +15,18 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 Environment = environment;
             }
 
-            protected IEnumerable<TTargetItem> GetEnumerable(JArray source, ITransformer recurse)
+            protected IEnumerable<TTargetItem> GetEnumerable(JsonElement source, ITransformer recurse)
             {
-                for (var i = 0; i < source.Count; i++)
+                foreach (JsonElement jsonElement in source.EnumerateArray())
                 {
-                    if (source[i] is JObject traverserObject && traverserObject.TryExpandTraverser<TTargetItem>(Environment, recurse) is { } enumerable)
+                    if (jsonElement.ValueKind == JsonValueKind.Object && jsonElement.TryExpandTraverser<TTargetItem>(Environment, recurse) is { } enumerable)
                     {
-                        foreach (var item1 in enumerable)
-                            yield return item1;
+                        foreach (var item in enumerable)
+                            yield return item;
                     }
-                    else if (recurse.TryTransform<JToken, TTargetItem>(source[i], Environment, out var item2))
+                    else if (recurse.TryTransform<JsonElement, TTargetItem>(jsonElement, Environment, out var item))
                     {
-                        yield return item2;
+                        yield return item;
                     }
                 }
             }
@@ -34,15 +34,15 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             protected IGremlinQueryEnvironment Environment { get; }
         }
 
-        private sealed class ArrayConverter<TTargetArray, TTargetItem> : EnumerableConverter<TTargetItem>, IConverter<JArray, TTargetArray>
+        private sealed class ArrayConverter<TTargetArray, TTargetItem> : EnumerableConverter<TTargetItem>, IConverter<JsonElement, TTargetArray>
         {
             public ArrayConverter(IGremlinQueryEnvironment environment) : base(environment)
             {
             }
 
-            public bool TryConvert(JArray serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTargetArray? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTargetArray? value)
             {
-                if (!Environment.SupportsType(typeof(TTargetArray)))
+                if (!Environment.SupportsType(typeof(TTargetArray)) && serialized.ValueKind == JsonValueKind.Array)
                 {
                     value = (TTargetArray)(object)GetEnumerable(serialized, recurse).ToArray();
                     return true;
@@ -53,13 +53,13 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             }
         }
 
-        private sealed class ListConverter<TTarget, TTargetItem> : EnumerableConverter<TTargetItem>, IConverter<JArray, TTarget>
+        private sealed class ListConverter<TTarget, TTargetItem> : EnumerableConverter<TTargetItem>, IConverter<JsonElement, TTarget>
         {
             public ListConverter(IGremlinQueryEnvironment environment) : base(environment)
             {
             }
 
-            public bool TryConvert(JArray serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
                 value = (TTarget)(object)GetEnumerable(serialized, recurse).ToList();
                 return true;
@@ -68,7 +68,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
-            if (typeof(TSource) == typeof(JArray))
+            if (typeof(TSource) == typeof(JsonElement))
             {
                 if (typeof(TTarget).IsAssignableFrom(typeof(object[])))
                     return (IConverter<TSource, TTarget>?)(object)new ArrayConverter<TTarget, object>(environment);

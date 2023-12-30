@@ -9,7 +9,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             return source
                 .ConfigureEnvironment(env => env
                     .ConfigureDeserializer(deserializer => deserializer
-                        .UseNewtonsoftJson()));
+                        .UseSystemTextJson()));
         }
     }
 }

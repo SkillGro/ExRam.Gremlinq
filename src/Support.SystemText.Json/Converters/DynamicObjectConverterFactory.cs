@@ -1,15 +1,14 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using System.Collections;
 using System.Dynamic;
 using System.Diagnostics.CodeAnalysis;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Core;
-using System.Collections;
 
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class DynamicObjectConverterFactory : IConverterFactory
     {
-        private sealed class DynamicObjectConverter<TTarget> : IConverter<JObject, TTarget>
+        private sealed class DynamicObjectConverter<TTarget> : IConverter<JsonElement, TTarget>
         {
             #region DynamicDictionary
             private sealed class DynamicDictionary : DynamicObject, IReadOnlyDictionary<string, object?>, IDictionary<string, object?>
@@ -82,7 +81,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 _environment = environment;
             }
 
-            public bool TryConvert(JObject serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
                 if (recurse.TryTransform(serialized, _environment, out IDictionary<string, object?>? dictionary))
                 {
@@ -97,7 +96,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
-            return typeof(TSource) == typeof(JObject) && typeof(TTarget) == typeof(object)
+            return typeof(TSource) == typeof(JsonElement) && typeof(TTarget) == typeof(object)
                 ? (IConverter<TSource, TTarget>)(object)new DynamicObjectConverter<TTarget>(environment)
                 : default;
         }

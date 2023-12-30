@@ -6,19 +6,14 @@ using ExRam.Gremlinq.Core;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Providers.Core;
 
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
-    internal sealed class DeferToNewtonsoftConverterFactory : IConverterFactory
+    internal sealed class DeferToSystemTextJsonConverterFactory : IConverterFactory
     {
-        private static readonly Newtonsoft.Json.JsonSerializer JsonSerializer = Newtonsoft.Json.JsonSerializer.CreateDefault();
-
-        private static class DeferToNewtonsoftConverter<TBinaryMessage>
+        private static class DeferToSystemTextJsonConverter<TBinaryMessage>
             where TBinaryMessage : IMemoryOwner<byte>
         {
-            private static readonly ThreadLocal<(TBinaryMessage, JToken)?> LastSerialization = new();
+            private static readonly ThreadLocal<(TBinaryMessage, JsonDocument)?> LastSerialization = new();
 
             public sealed class DeferToNewtonsoftConverterImpl<TTarget> : IConverter<TBinaryMessage, TTarget>
             {
@@ -33,10 +28,10 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 {
                     value = default;
 
-                    return TryGetJToken(source) is { } token && recurse.TryTransform(token, _environment, out value);
+                    return TryGetJsonDocument(source) is { } document && recurse.TryTransform(document.RootElement, _environment, out value);
                 }
 
-                private static JToken? TryGetJToken(TBinaryMessage source)
+                private static JsonDocument TryGetJsonDocument(TBinaryMessage source)
                 {
                     if (LastSerialization.Value is { Item1: { } lastMessage, Item2: { } lastToken } && EqualityComparer<TBinaryMessage>.Default.Equals(lastMessage, source))
                         return lastToken;
@@ -45,33 +40,15 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                         ? new MemoryStream(array, segment.Offset, segment.Count)
                         : new MemoryStream(source.Memory.ToArray());
 
-                    using (stream)
-                    {
-                        using (var streamReader = new StreamReader(stream))
-                        {
-                            using (var jsonTextReader = new JsonTextReader(streamReader))
-                            {
-                                jsonTextReader.DateParseHandling = DateParseHandling.None;
-
-                                if (JsonSerializer.Deserialize<JToken>(jsonTextReader) is { } jToken)
-                                {
-                                    LastSerialization.Value = (source, jToken);
-
-                                    return jToken;
-                                }
-                            }
-                        }
-                    }
-
-                    return null;
+                    return JsonDocument.Parse(stream);
                 }
             }
         }
 
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(TSource) == typeof(GraphSon2BinaryMessage)
-            ? (IConverter<TSource, TTarget>)(object)new DeferToNewtonsoftConverter<GraphSon2BinaryMessage>.DeferToNewtonsoftConverterImpl<TTarget>(environment)
+            ? (IConverter<TSource, TTarget>)(object)new DeferToSystemTextJsonConverter<GraphSon2BinaryMessage>.DeferToNewtonsoftConverterImpl<TTarget>(environment)
             : typeof(TSource) == typeof(GraphSon3BinaryMessage)
-                ? (IConverter<TSource, TTarget>)(object)new DeferToNewtonsoftConverter<GraphSon3BinaryMessage>.DeferToNewtonsoftConverterImpl<TTarget>(environment)
+                ? (IConverter<TSource, TTarget>)(object)new DeferToSystemTextJsonConverter<GraphSon3BinaryMessage>.DeferToNewtonsoftConverterImpl<TTarget>(environment)
                 : default;
     }
 }

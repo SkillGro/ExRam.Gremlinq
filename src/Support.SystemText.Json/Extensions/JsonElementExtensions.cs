@@ -38,8 +38,10 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             return null;
         }
 
-        public static bool LooksLikeElement(this JsonElement jObject, [NotNullWhen(true)] out JsonElement idToken, [NotNullWhen(true)] out JsonValueKind labelValue, out JsonElement? propertiesObject)
+        public static bool LooksLikeElement(this JsonElement jObject, [NotNullWhen(true)] out JsonElement idToken, [NotNullWhen(true)] out JsonElement labelValue, out JsonElement? propertiesObject)
         {
+            idToken = default;
+            labelValue = default;
             propertiesObject = null;
 
             if (!jObject.TryGetProperty("value", out _)
@@ -51,7 +53,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 if (labelToken.ValueKind != JsonValueKind.Object
                  && labelToken.ValueKind != JsonValueKind.Array)
                 {
-                    labelValue = labelToken.ValueKind;
+                    labelValue = labelToken;
                     if (jObject.TryGetProperty("properties", out var propertiesToken))
                     {
                         if (propertiesToken.ValueKind != JsonValueKind.Object)

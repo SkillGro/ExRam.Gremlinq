@@ -133,12 +133,13 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
             }
         }
 
-        private sealed class NewtonsoftJsonSerializerConverter<TSource, TTarget> : IConverter<TSource, TTarget>
+        private sealed class SystemTextJsonSerializerConverter<TSource, TTarget> : IConverter<TSource, TTarget>
             where TSource : JToken
         {
+            //private readonly JsonSerializerSettings _settings;
             private readonly GraphsonJsonSerializer _serializer;
 
-            public NewtonsoftJsonSerializerConverter(IGremlinQueryEnvironment environment)
+            public SystemTextJsonSerializerConverter(IGremlinQueryEnvironment environment)
             {
                 _serializer = new GraphsonJsonSerializer(environment);
             }
@@ -172,7 +173,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
         public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
         {
             return typeof(JToken).IsAssignableFrom(typeof(TSource))
-                ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(NewtonsoftJsonSerializerConverter<,>).MakeGenericType(typeof(TSource), typeof(TTarget)), environment)
+                ? (IConverter<TSource, TTarget>?)Activator.CreateInstance(typeof(SystemTextJsonSerializerConverter<,>).MakeGenericType(typeof(TSource), typeof(TTarget)), environment)
                 : null;
         }
     }

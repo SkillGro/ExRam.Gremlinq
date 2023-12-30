@@ -3,6 +3,7 @@ using System.Reflection;
 
 using ExRam.Gremlinq.Core;
 using ExRam.Gremlinq.Core.Transformation;
+using ExRam.Gremlinq.Support.NewtonsoftJson;
 
 namespace ExRam.Gremlinq.Support.SystemTextJson
 {
@@ -67,10 +68,10 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                     : default(TTarget?);
         }
 
-        public static ITransformer UseNewtonsoftJson(this ITransformer transformer)
+        public static ITransformer UseSystemTextJson(this ITransformer transformer)
         {
             return transformer
-                .Add(new DeferToNewtonsoftConverterFactory())
+                .Add(new DeferToSystemTextJsonConverterFactory())
                 .Add(new NewtonsoftJsonSerializerConverterFactory())
                 .Add(new VertexPropertyPropertiesConverterFactory())
                 .Add(new DictionaryConverterFactory())
@@ -89,8 +90,8 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 .Add(new BulkSetConverterFactory())
                 .Add(new EnumerableConverterFactory())
 
-                .Add(new NativeTypeConverterFactory())
                 .Add(new NullableConverterFactory())
+                .Add(new NativeTypeConverterFactory())
 
                 .Add(new TimeSpanConverterFactory())
                 .Add(new DateTimeOffsetConverterFactory())

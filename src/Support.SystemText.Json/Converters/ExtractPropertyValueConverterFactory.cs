@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using ExRam.Gremlinq.Core.Transformation;
 using ExRam.Gremlinq.Core;
 using ExRam.Gremlinq.Core.GraphElements;
@@ -8,7 +7,7 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
 {
     internal sealed class ExtractPropertyValueConverterFactory : IConverterFactory
     {
-        private sealed class ExtractPropertyValueConverter<TTarget> : IConverter<JToken, TTarget>
+        private sealed class ExtractPropertyValueConverter<TTarget> : IConverter<JsonElement, TTarget>
         {
             private readonly IGremlinQueryEnvironment _environment;
 
@@ -17,22 +16,27 @@ namespace ExRam.Gremlinq.Support.SystemTextJson
                 _environment = environment;
             }
 
-            public bool TryConvert(JToken serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
+            public bool TryConvert(JsonElement serialized, ITransformer defer, ITransformer recurse, [NotNullWhen(true)] out TTarget? value)
             {
-                if (serialized is JObject jObject)
+                if (serialized.ValueKind == JsonValueKind.Object)
                 {
-                    if (!typeof(Property).IsAssignableFrom(typeof(TTarget)) && (jObject.LooksLikeProperty() || jObject.LooksLikeVertexProperty()) && jObject.TryGetValue("value", out var valueToken))
+                    if (!typeof(Property).IsAssignableFrom(typeof(TTarget)) && (serialized.LooksLikeProperty() || serialized.LooksLikeVertexProperty()) && serialized.TryGetProperty("value", out var valueToken))
                         return recurse.TryTransform(valueToken, _environment, out value);
                 }
-                else if (serialized is JArray { Count: 1 } jArray)
-                    return recurse.TryTransform(jArray[0], _environment, out value);
+                else if (serialized.ValueKind == JsonValueKind.Array)
+                {
+                    var item = serialized.EnumerateArray().SingleOrDefault();
+                    if (item.ValueKind != JsonValueKind.Undefined)
+                        return recurse.TryTransform(item, _environment, out value);
+                }
 
                 value = default;
                 return false;
             }
         }
 
-        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment) => typeof(JToken).IsAssignableFrom(typeof(TSource))
+        public IConverter<TSource, TTarget>? TryCreate<TSource, TTarget>(IGremlinQueryEnvironment environment)
+         => typeof(TSource) == typeof(JsonElement)
             ? (IConverter<TSource, TTarget>)(object)new ExtractPropertyValueConverter<TTarget>(environment)
             : default;
     }
